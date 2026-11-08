@@ -4,7 +4,7 @@ class LoginView(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Login - Sistem Perpustakaan")
-        self.geometry("360x390")
+        self.geometry("360x320")
         self.resizable(False, False)
 
         self.frame = ctk.CTkFrame(self)
@@ -20,12 +20,4 @@ class LoginView(ctk.CTk):
         self.entry_password.pack(pady=10, padx=20, fill="x")
 
         self.btn_login = ctk.CTkButton(self.frame, text="Masuk", fg_color="blue")
-        self.btn_login.pack(pady=(20, 5), padx=20, fill="x")
-
-        self.btn_register = ctk.CTkButton(
-            self.frame,
-            text="Belum punya akun? Daftar",
-            fg_color="transparent",
-            border_width=1
-        )
-        self.btn_register.pack(pady=(5, 20), padx=20, fill="x")
+        self.btn_login.pack(pady=20, padx=20, fill="x")

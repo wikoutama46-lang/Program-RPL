@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from models.user_model import UserModel
 
 
@@ -7,15 +7,19 @@ def test_hash_password_konsisten():
     hash_1 = UserModel.hash_password(password_asli)
     hash_2 = UserModel.hash_password(password_asli)
 
-    # Memastikan hasil hash tidak sama dengan plain text dan bersifat konsisten
+    # Memastikan hasil hash tidak sama dengan plaintext asli
     assert hash_1 != password_asli
     assert hash_1 == hash_2
     assert len(hash_1) == 64  # Panjang karakter standar SHA-256
 
 
-def test_autentikasi_pengguna_berhasil():
+@patch("config.database.Database.get_connection")
+def test_autentikasi_pengguna_berhasil(mock_get_conn):
+    # Mock koneksi database agar tidak memicu error koneksi MySQL di server CI
+    mock_conn = MagicMock()
+    mock_get_conn.return_value = mock_conn
+
     model = UserModel()
-    model.conn = MagicMock()
     mock_cursor = MagicMock()
 
     # Simulasi kembalian data dari database ketika username & password cocok

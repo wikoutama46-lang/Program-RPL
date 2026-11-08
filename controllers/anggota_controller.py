@@ -3,157 +3,125 @@ from models.anggota_model import AnggotaModel
 from views.anggota_view import AnggotaView
 
 class AnggotaController:
-    def __init__(self):
-        # Inisialisasi Model dan View
-        self.model = AnggotaModel()
-        self.view = AnggotaView()
+    def __init__(self, view=None, model=None):
+        # Mendukung pemanggilan tanpa parameter atau dengan parameter (app, model)
+        self.model = model if model else AnggotaModel()
+        self.view = view if view else AnggotaView()
+        self.selected_id = None
 
-        # Binding (mengikat) tombol di View dengan fungsi di Controller
-        self.view.btn_simpan.configure(command=self.simpan_data)
-        self.view.btn_perbarui.configure(command=self.perbarui_data)
-        self.view.btn_hapus.configure(command=self.hapus_data)
+        # 1. Binding Tombol Simpan
+        if hasattr(self.view, 'btn_simpan'):
+            self.view.btn_simpan.configure(command=self.simpan_data)
 
-        # Menyimpan id_anggota dari baris tabel yang diklik pengguna
-        self.id_terpilih = None
-        self.view.tabel.bind("<<TreeviewSelect>>", self.pilih_data)
+        # 2. Binding Tombol Perbarui / Update
+        if hasattr(self.view, 'btn_perbarui'):
+            self.view.btn_perbarui.configure(command=self.perbarui_data)
+        elif hasattr(self.view, 'btn_update'):
+            self.view.btn_update.configure(command=self.perbarui_data)
 
-        # Memuat data ke tabel saat aplikasi pertama kali dibuka
+        # 3. Binding Tombol Hapus / Delete
+        if hasattr(self.view, 'btn_hapus'):
+            self.view.btn_hapus.configure(command=self.hapus_data)
+        elif hasattr(self.view, 'btn_delete'):
+            self.view.btn_delete.configure(command=self.hapus_data)
+
+        # 4. Binding Event Klik Baris pada Tabel
+        if hasattr(self.view, 'tabel'):
+            self.view.tabel.bind("<<TreeviewSelect>>", self.pada_baris_diklik)
+
         self.muat_data_tabel()
 
     def muat_data_tabel(self):
-        # Mengosongkan isi tabel di View terlebih dahulu
         for item in self.view.tabel.get_children():
             self.view.tabel.delete(item)
 
-        # Mengambil data dari Model (database)
         data_anggota = self.model.get_all_anggota()
-
-        # Memasukkan data baru ke dalam tabel View
         for anggota in data_anggota:
+            id_val = anggota.get('id_anggota') or anggota.get('id')
+            nama_val = anggota.get('nama') or anggota.get('nama_lengkap') or anggota.get('nama_anggota')
+            alamat_val = anggota.get('alamat') or anggota.get('Alamat') or "-"
+
             self.view.tabel.insert(
-                "", "end",
+                "",
+                "end",
                 values=(
-                    anggota['id_anggota'],
-                    anggota['nama'],
-                    anggota['alamat']
+                    id_val,
+                    nama_val,
+                    alamat_val
                 )
             )
 
-    def bersihkan_form(self):
-        # Kosongkan form input dan lepas pilihan baris
-        self.view.entry_nama.delete(0, 'end')
-        self.view.entry_alamat.delete(0, 'end')
-        self.id_terpilih = None
-
-    def pilih_data(self, event=None):
-        # Dipanggil saat pengguna mengklik baris tabel
-        pilihan = self.view.tabel.selection()
-        if not pilihan:
-            return
-        nilai = self.view.tabel.item(pilihan[0], "values")
-
-        # Ambil id_anggota dari baris yang diklik, lalu isi form dengan datanya
-        self.bersihkan_form()
-        self.id_terpilih = nilai[0]
-        self.view.entry_nama.insert(0, nilai[1])
-        self.view.entry_alamat.insert(0, nilai[2])
+    def pada_baris_diklik(self, event):
+        selected_item = self.view.tabel.selection()
+        if selected_item:
+            item_data = self.view.tabel.item(selected_item[0])['values']
+            self.selected_id = int(str(item_data[0]).strip())
+            
+            if hasattr(self.view, 'entry_nama'):
+                self.view.entry_nama.delete(0, 'end')
+                self.view.entry_nama.insert(0, str(item_data[1]))
+                
+            if hasattr(self.view, 'entry_alamat'):
+                self.view.entry_alamat.delete(0, 'end')
+                self.view.entry_alamat.insert(0, str(item_data[2]))
 
     def simpan_data(self):
-        # Mengambil teks dari kotak input di View
-        nama = self.view.entry_nama.get()
-        alamat = self.view.entry_alamat.get()
+        nama = self.view.entry_nama.get() if hasattr(self.view, 'entry_nama') else ""
+        alamat = self.view.entry_alamat.get() if hasattr(self.view, 'entry_alamat') else ""
 
-        # Validasi Form Kosong
         if not nama or not alamat:
-            messagebox.showwarning(
-                "Peringatan",
-                "Semua kolom form harus diisi!"
-            )
+            messagebox.showwarning("Peringatan", "Semua kolom form harus diisi!")
             return
 
-        # Mengirim data ke Model untuk disimpan
         berhasil = self.model.create_anggota(nama, alamat)
         if berhasil:
-            messagebox.showinfo(
-                "Sukses",
-                "Data anggota berhasil disimpan!"
-            )
+            messagebox.showinfo("Sukses", "Data anggota berhasil disimpan!")
             self.bersihkan_form()
-            # Muat ulang tabel agar data terbaru muncul
             self.muat_data_tabel()
         else:
-            messagebox.showerror(
-                "Error",
-                "Terjadi kesalahan saat menyimpan data."
-            )
+            messagebox.showerror("Error", "Terjadi kesalahan saat menyimpan data.")
 
     def perbarui_data(self):
-        # Pastikan ada baris yang dipilih di tabel
-        if self.id_terpilih is None:
-            messagebox.showwarning(
-                "Peringatan",
-                "Pilih data anggota pada tabel terlebih dahulu!"
-            )
+        if self.selected_id is None:
+            messagebox.showwarning("Peringatan", "Klik/pilih salah satu baris anggota di tabel terlebih dahulu!")
             return
 
-        nama = self.view.entry_nama.get()
-        alamat = self.view.entry_alamat.get()
+        nama = self.view.entry_nama.get() if hasattr(self.view, 'entry_nama') else ""
+        alamat = self.view.entry_alamat.get() if hasattr(self.view, 'entry_alamat') else ""
 
-        # Validasi Form Kosong
         if not nama or not alamat:
-            messagebox.showwarning(
-                "Peringatan",
-                "Semua kolom form harus diisi!"
-            )
+            messagebox.showwarning("Peringatan", "Semua kolom form harus diisi!")
             return
 
-        # Teruskan id_anggota beserta data baru ke fungsi update di Model
-        berhasil = self.model.update_anggota(self.id_terpilih, nama, alamat)
+        berhasil = self.model.update_anggota(self.selected_id, nama, alamat)
         if berhasil:
-            messagebox.showinfo(
-                "Sukses",
-                "Data anggota berhasil diperbarui!"
-            )
+            messagebox.showinfo("Sukses", "Data anggota berhasil diperbarui!")
             self.bersihkan_form()
             self.muat_data_tabel()
         else:
-            messagebox.showerror(
-                "Error",
-                "Terjadi kesalahan saat memperbarui data."
-            )
+            messagebox.showerror("Error", "Gagal memperbarui data anggota.")
 
     def hapus_data(self):
-        # Pastikan ada baris yang dipilih di tabel
-        if self.id_terpilih is None:
-            messagebox.showwarning(
-                "Peringatan",
-                "Pilih data anggota pada tabel terlebih dahulu!"
-            )
+        if self.selected_id is None:
+            messagebox.showwarning("Peringatan", "Klik/pilih salah satu baris anggota di tabel terlebih dahulu!")
             return
 
-        # Minta konfirmasi sebelum data dihapus
-        yakin = messagebox.askyesno(
-            "Konfirmasi",
-            "Yakin ingin menghapus data anggota ini?"
-        )
-        if not yakin:
-            return
+        konfirmasi = messagebox.askyesno("Konfirmasi", "Apakah Anda yakin ingin menghapus data anggota ini?")
+        if konfirmasi:
+            berhasil = self.model.delete_anggota(self.selected_id)
+            if berhasil:
+                messagebox.showinfo("Sukses", "Data anggota berhasil dihapus!")
+                self.bersihkan_form()
+                self.muat_data_tabel()
+            else:
+                messagebox.showerror("Error", "Gagal menghapus data anggota.")
 
-        # Teruskan id_anggota ke fungsi hapus di Model
-        berhasil = self.model.delete_anggota(self.id_terpilih)
-        if berhasil:
-            messagebox.showinfo(
-                "Sukses",
-                "Data anggota berhasil dihapus!"
-            )
-            self.bersihkan_form()
-            self.muat_data_tabel()
-        else:
-            messagebox.showerror(
-                "Error",
-                "Terjadi kesalahan saat menghapus data."
-            )
+    def bersihkan_form(self):
+        self.selected_id = None
+        if hasattr(self.view, 'entry_nama'):
+            self.view.entry_nama.delete(0, 'end')
+        if hasattr(self.view, 'entry_alamat'):
+            self.view.entry_alamat.delete(0, 'end')
 
-    # Fungsi untuk menjalankan aplikasi
     def run(self):
         self.view.mainloop()

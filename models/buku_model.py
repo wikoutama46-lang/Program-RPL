@@ -2,6 +2,7 @@ from config.database import Database
 
 
 class BukuModel:
+
     def __init__(self):
         self.db = Database()
         self.conn = self.db.get_connection()
@@ -17,24 +18,10 @@ class BukuModel:
             return result
         return []
 
-    def get_buku_by_id(self, id_buku):
-        if self.conn:
-            cursor = self.conn.cursor(dictionary=True)
-            query = f"SELECT * FROM {self.table_name} WHERE id_buku = %s"
-            cursor.execute(query, (id_buku,))
-            result = cursor.fetchone()
-            cursor.close()
-            return result
-        return None
-
     def create_buku(self, judul, penulis, tahun_terbit):
         if self.conn:
             cursor = self.conn.cursor()
-            query = f"""
-                INSERT INTO {self.table_name}
-                (judul, penulis, tahun_terbit)
-                VALUES (%s, %s, %s)
-            """
+            query = f"INSERT INTO {self.table_name} (judul, penulis, tahun_terbit) VALUES (%s, %s, %s)"
             val = (judul, penulis, tahun_terbit)
             cursor.execute(query, val)
             self.conn.commit()
@@ -42,14 +29,11 @@ class BukuModel:
             return True
         return False
 
+    # === UPDATE ===
     def update_buku(self, id_buku, judul, penulis, tahun_terbit):
         if self.conn:
             cursor = self.conn.cursor()
-            query = f"""
-                UPDATE {self.table_name}
-                SET judul = %s, penulis = %s, tahun_terbit = %s
-                WHERE id_buku = %s
-            """
+            query = f"UPDATE {self.table_name} SET judul = %s, penulis = %s, tahun_terbit = %s WHERE id_buku = %s"
             val = (judul, penulis, tahun_terbit, id_buku)
             cursor.execute(query, val)
             self.conn.commit()
@@ -57,12 +41,24 @@ class BukuModel:
             return True
         return False
 
+    # === DELETE ===
     def delete_buku(self, id_buku):
-        if self.conn:
+        if not self.conn:
+            return False
+        
+        cursor = None
+        try:
             cursor = self.conn.cursor()
             query = f"DELETE FROM {self.table_name} WHERE id_buku = %s"
-            cursor.execute(query, (id_buku,))
+            val = (int(id_buku),)
+            cursor.execute(query, val)
             self.conn.commit()
-            cursor.close()
             return True
-        return False
+        except Exception as e:
+            print(f"Error Delete: {e}")
+            if self.conn:
+                self.conn.rollback()  # Batalkan transaksi jika gagal agar tidak terkunci
+            return False
+        finally:
+            if cursor:
+                cursor.close()
